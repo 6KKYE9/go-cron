@@ -87,3 +87,44 @@ func TestMatchOrSemantics(t *testing.T) {
 		t.Fatal("周三非1号不应命中")
 	}
 }
+
+func TestPrevNWeekdays(t *testing.T) {
+	s, _ := Parse("0 9 * * 1-5") // 工作日早 9 点
+	// 周三 10:00 往前，最近一次应为当天 09:00
+	base := time.Date(2026, 8, 5, 10, 0, 0, 0, time.Local)
+	prev := s.PrevN(base, 3)
+	if len(prev) != 3 {
+		t.Fatalf("应有 3 次, got %d", len(prev))
+	}
+	if prev[0].Weekday() != time.Wednesday || prev[0].Hour() != 9 || prev[0].Minute() != 0 {
+		t.Fatalf("最近一次应为周三 09:00, got %s", prev[0].Format("Mon 15:04"))
+	}
+	if prev[1].Weekday() != time.Tuesday || prev[2].Weekday() != time.Monday {
+		t.Fatalf("再往前应为周二、周一, got %s / %s", prev[1].Format("Mon"), prev[2].Format("Mon"))
+	}
+}
+
+func TestPrevEvery15Min(t *testing.T) {
+	s, _ := Parse("*/15 * * * *")
+	base := time.Date(2026, 8, 6, 10, 37, 0, 0, time.Local)
+	prev := s.PrevN(base, 3)
+	want := []string{"10:30", "10:15", "10:00"}
+	for i, w := range want {
+		if prev[i].Format("15:04") != w {
+			t.Fatalf("第%d次应为 %s, got %s", i+1, w, prev[i].Format("15:04"))
+		}
+	}
+}
+
+func TestPrevAtExactHit(t *testing.T) {
+	s, _ := Parse("0 9 * * *") // 每天 9:00
+	// 起点恰好命中，Prev 应返回该时刻之前的上一次（前一天 9:00）
+	base := time.Date(2026, 8, 6, 9, 0, 0, 0, time.Local)
+	prev := s.Prev(base)
+	if prev.Hour() != 9 || prev.Minute() != 0 {
+		t.Fatalf("应返回 9:00, got %s", prev.Format("15:04"))
+	}
+	if prev.Day() != 5 {
+		t.Fatalf("应为前一天 8/5, got %s", prev.Format("2006-01-02"))
+	}
+}

@@ -125,9 +125,6 @@ func (s *Schedule) match(t time.Time) bool {
 // Next 从 t（含）起向后找下一个命中时间，最多找 4 年。
 func (s *Schedule) Next(t time.Time) time.Time {
 	t = t.Truncate(time.Minute)
-	if s.match(t) {
-		// 若当前分钟已命中，仍返回（含起点）
-	}
 	for i := 0; i < 4*365*24*60; i++ {
 		if s.match(t) {
 			return t
@@ -135,6 +132,33 @@ func (s *Schedule) Next(t time.Time) time.Time {
 		t = t.Add(time.Minute)
 	}
 	return time.Time{}
+}
+
+// Prev 从 t（含）向前找上一次命中时间，最多回溯 4 年。
+func (s *Schedule) Prev(t time.Time) time.Time {
+	t = t.Truncate(time.Minute)
+	for i := 0; i < 4*365*24*60; i++ {
+		if s.match(t) {
+			return t
+		}
+		t = t.Add(-time.Minute)
+	}
+	return time.Time{}
+}
+
+// PrevN 返回从 t 往前数的 n 次触发时间（由近及远）。
+func (s *Schedule) PrevN(t time.Time, n int) []time.Time {
+	out := make([]time.Time, 0, n)
+	cur := t.Truncate(time.Minute).Add(-time.Minute)
+	for len(out) < n {
+		pt := s.Prev(cur)
+		if pt.IsZero() {
+			break
+		}
+		out = append(out, pt)
+		cur = pt.Add(-time.Minute)
+	}
+	return out
 }
 
 // NextN 返回从 t 起接下来的 n 个触发时间。
