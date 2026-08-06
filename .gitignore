@@ -1,0 +1,7 @@
+# 临时文件
+*.tmp
+r.tmp
+
+# 编译产物
+*.exe
+/go-cron

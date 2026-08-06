@@ -5,18 +5,22 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
 // Schedule 是一条 cron 计划。
+// dayStar / weekStar 记录日、周字段是否为通配（*），用于匹配时按标准 cron 的 OR 语义处理。
 type Schedule struct {
 	Minute map[int]bool
 	Hour   map[int]bool
 	Day    map[int]bool
 	Month  map[int]bool
 	Week   map[int]bool
+	dayStar   bool
+	weekStar  bool
 }
 
 func newSet(min, max int) map[int]bool {
@@ -32,6 +36,8 @@ func parseField(field string, min, max int) (map[int]bool, error) {
 	if field == "*" {
 		return newSet(min, max), nil
 	}
+	// 周字段允许 7 作为周日别名（标准 cron 习惯），归一到 0。
+	isWeek := max == 6 && min == 0
 	for _, part := range strings.Split(field, ",") {
 		// 支持 */step
 		step := 1
@@ -49,12 +55,23 @@ func parseField(field string, min, max int) (map[int]bool, error) {
 			if idx := strings.Index(rangePart, "-"); idx >= 0 {
 				a, err1 := strconv.Atoi(rangePart[:idx])
 				b, err2 := strconv.Atoi(rangePart[idx+1:])
+				if isWeek {
+					if a == 7 {
+						a = 0
+					}
+					if b == 7 {
+						b = 0
+					}
+				}
 				if err1 != nil || err2 != nil || a < min || b > max || a > b {
 					return nil, fmt.Errorf("范围错误: %q", part)
 				}
 				lo, hi = a, b
 			} else {
 				v, err := strconv.Atoi(rangePart)
+				if isWeek && v == 7 {
+					v = 0
+				}
 				if err != nil || v < min || v > max {
 					return nil, fmt.Errorf("数值越界: %q", part)
 				}
@@ -94,7 +111,11 @@ func Parse(expr string) (*Schedule, error) {
 	if err5 != nil {
 		return nil, fmt.Errorf("周字段: %w", err5)
 	}
-	return &Schedule{Minute: min, Hour: hour, Day: day, Month: month, Week: week}, nil
+	return &Schedule{
+		Minute: min, Hour: hour, Day: day, Month: month, Week: week,
+		dayStar:   fields[2] == "*",
+		weekStar:  fields[4] == "*",
+	}, nil
 }
 
 // match 判断某时间是否命中计划（日与周为「或」关系，符合标准 cron 语义）。
@@ -106,17 +127,15 @@ func (s *Schedule) match(t time.Time) bool {
 		return false
 	}
 	// 日与周：任一个匹配即可（标准 cron：两字段同时非 * 时为 OR）
-	dayStar := len(s.Day) == 31
-	weekStar := len(s.Week) == 7
-	if dayStar && weekStar {
+	if s.dayStar && s.weekStar {
 		return true
 	}
 	dayOK := s.Day[t.Day()]
 	weekOK := s.Week[int(t.Weekday())]
-	if dayStar {
+	if s.dayStar {
 		return weekOK
 	}
-	if weekStar {
+	if s.weekStar {
 		return dayOK
 	}
 	return dayOK || weekOK
@@ -193,14 +212,7 @@ func setSummary(m map[int]bool, min, max int) string {
 	for v := range m {
 		vals = append(vals, v)
 	}
-	// 简单排序
-	for i := 0; i < len(vals); i++ {
-		for j := i + 1; j < len(vals); j++ {
-			if vals[j] < vals[i] {
-				vals[i], vals[j] = vals[j], vals[i]
-			}
-		}
-	}
+	sort.Ints(vals)
 	if len(vals) == max-min+1 {
 		return "*"
 	}
