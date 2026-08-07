@@ -5,3 +5,6 @@ r.tmp
 # 编译产物
 *.exe
 /go-cron
+
+# 涓存椂璇婃柇/杈撳嚭鏂囦欢锛圥owerShell 閲嶅畾鍚戜骇鐢燂級
+_*.txt
