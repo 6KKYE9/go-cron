@@ -14,13 +14,13 @@ import (
 // Schedule 是一条 cron 计划。
 // dayStar / weekStar 记录日、周字段是否为通配（*），用于匹配时按标准 cron 的 OR 语义处理。
 type Schedule struct {
-	Minute map[int]bool
-	Hour   map[int]bool
-	Day    map[int]bool
-	Month  map[int]bool
-	Week   map[int]bool
-	dayStar   bool
-	weekStar  bool
+	Minute   map[int]bool
+	Hour     map[int]bool
+	Day      map[int]bool
+	Month    map[int]bool
+	Week     map[int]bool
+	dayStar  bool
+	weekStar bool
 }
 
 func newSet(min, max int) map[int]bool {
@@ -113,8 +113,8 @@ func Parse(expr string) (*Schedule, error) {
 	}
 	return &Schedule{
 		Minute: min, Hour: hour, Day: day, Month: month, Week: week,
-		dayStar:   fields[2] == "*",
-		weekStar:  fields[4] == "*",
+		dayStar:  fields[2] == "*",
+		weekStar: fields[4] == "*",
 	}, nil
 }
 
@@ -153,9 +153,10 @@ func (s *Schedule) Next(t time.Time) time.Time {
 	return time.Time{}
 }
 
-// Prev 从 t（含）向前找上一次命中时间，最多回溯 4 年。
+// Prev 从 t 之前向前找上一次命中时间，最多回溯 4 年。
+// 不含起点 t 本身（若 t 命中，返回的是它上一次），和 PrevN 的口径保持一致。
 func (s *Schedule) Prev(t time.Time) time.Time {
-	t = t.Truncate(time.Minute)
+	t = t.Truncate(time.Minute).Add(-time.Minute)
 	for i := 0; i < 4*365*24*60; i++ {
 		if s.match(t) {
 			return t

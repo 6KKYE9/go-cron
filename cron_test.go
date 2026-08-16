@@ -136,7 +136,7 @@ func TestWeekday7Alias(t *testing.T) {
 		t.Fatalf("周=7 解析报错: %v", err)
 	}
 	s0, _ := Parse("0 0 * * 0")
-	sun := time.Date(2026, 8, 9, 0, 0, 0, 0, time.Local) // 8/9 是周日
+	sun := time.Date(2026, 8, 9, 0, 0, 0, 0, time.Local)  // 8/9 是周日
 	wed := time.Date(2026, 8, 12, 0, 0, 0, 0, time.Local) // 8/12 是周三
 	if !s7.match(sun) || s7.match(wed) {
 		t.Fatal("周=7 应仅周日命中")
@@ -152,17 +152,17 @@ func TestWeekday7Alias(t *testing.T) {
 func TestStarSemanticsExplicitFullSet(t *testing.T) {
 	// 显式列举全部日(1-31) 逻辑上等同 *，但通配标志应基于原始表达式判定，
 	// 这里验证 match 的 OR 语义仅依赖通配标志而非集合长度。
-	sStar, _ := Parse("0 0 * * 1")   // 日=*（通配）
-	sList, _ := Parse("0 0 1-31 * 1") // 日=1-31（非通配但覆盖全部日子）
-	mon := time.Date(2026, 8, 3, 0, 0, 0, 0, time.Local)  // 周一
-	wed := time.Date(2026, 8, 5, 0, 0, 0, 0, time.Local)  // 周三
+	sStar, _ := Parse("0 0 * * 1")                       // 日=*（通配）
+	sList, _ := Parse("0 0 1-31 * 1")                    // 日=1-31（非通配但覆盖全部日子）
+	mon := time.Date(2026, 8, 3, 0, 0, 0, 0, time.Local) // 周一
+	wed := time.Date(2026, 8, 5, 0, 0, 0, 0, time.Local) // 周三
 	// 日=*：与周 OR，周一命中
 	if !sStar.match(mon) {
 		t.Fatal("日=* 时周一应命中(周命中)")
 	}
-	// 日=1-31（非通配）：周三不命中（既非周一，日也非特殊）
-	if sList.match(wed) {
-		t.Fatal("日=1-31(非通配) 时周三不应命中")
+	// 日=1-31（非通配但覆盖全部日子）：周三因日字段命中而命中（标准 cron 的 OR 语义）
+	if !sList.match(wed) {
+		t.Fatal("日=1-31(非通配) 时周三应命中(日字段覆盖全部日期)")
 	}
 	// 日=1-31 时周一应命中（周命中）
 	if !sList.match(mon) {
